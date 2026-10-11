@@ -789,15 +789,27 @@
      Voice input
      ------------------------------------------------------------------------ */
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // Fallback for browsers without built-in speech recognition (for example Firefox):
+  // record audio here and let the server transcribe it.
+  const TRANSCRIBE_URL = '/api/transcribe';
+  const MAX_RECORD_MS = 120000;
+  const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  let useRecorder = !SpeechRecognitionCtor && canRecord;
   let recognition = null;
+  let recorder = null;
+  let recStream = null;
+  let recChunks = [];
+  let recTimer = null;
+  let discardRecording = false;
+  let transcribing = false;
   let listening = false;
   let hintTimer = null;
 
-  function setHint(text, isStatus) {
+  function setHint(text, isStatus, sticky) {
     window.clearTimeout(hintTimer);
     el.hint.textContent = text || DEFAULT_HINT;
     el.hint.classList.toggle('is-status', !!isStatus);
-    if (isStatus && text && !listening) {
+    if (isStatus && text && !listening && !sticky) {
       hintTimer = window.setTimeout(() => updateComposer(), 4500);
     }
   }
@@ -813,11 +825,108 @@
     else updateComposer();
   }
 
+  function releaseStream() {
+    if (recStream) { recStream.getTracks().forEach((t) => t.stop()); recStream = null; }
+  }
+
+  /** Stop the recorder. With discard=true the audio is thrown away instead of transcribed. */
+  function stopRecording(discard) {
+    window.clearTimeout(recTimer);
+    if (recorder && recorder.state !== 'inactive') {
+      discardRecording = !!discard;
+      try { recorder.stop(); } catch { releaseStream(); recorder = null; setListening(false); }
+      return true;
+    }
+    return false;
+  }
+
+  /** Called when other actions (sending, switching chats) need the mic off; nothing is transcribed. */
   function stopVoice() {
+    if (stopRecording(true)) return;
     if (recognition) { try { recognition.stop(); } catch { /* already stopped */ } }
   }
 
+  /** Called from the mic button: finish speaking and keep what was said. */
+  function finishVoice() {
+    if (stopRecording(false)) return;
+    stopVoice();
+  }
+
+  function pickMimeType() {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    return types.find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  }
+
+  async function startRecording() {
+    if (listening || transcribing || !canRecord) return;
+    stopSpeaking();
+    try {
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      const missing = err && (err.name === 'NotFoundError' || err.name === 'OverconstrainedError');
+      setHint(missing ? 'No microphone was found.' : 'Microphone access is blocked. Allow it in your browser settings to use voice input.', true);
+      return;
+    }
+    const mime = pickMimeType();
+    recChunks = [];
+    try {
+      recorder = mime ? new MediaRecorder(recStream, { mimeType: mime }) : new MediaRecorder(recStream);
+    } catch {
+      releaseStream();
+      setHint('Voice recording is not supported in this browser.', true);
+      return;
+    }
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+    recorder.onstop = onRecordingStop;
+    discardRecording = false;
+    recorder.start();
+    setListening(true);
+    setHint('Recording… tap the microphone when you are done', true, true);
+    recTimer = window.setTimeout(() => stopRecording(false), MAX_RECORD_MS);
+  }
+
+  async function onRecordingStop() {
+    const type = (recorder && recorder.mimeType) || 'audio/webm';
+    const blob = new Blob(recChunks, { type });
+    const discard = discardRecording;
+    recChunks = [];
+    recorder = null;
+    releaseStream();
+    setListening(false);
+    if (discard) return;
+    if (blob.size < 1500) { setHint('No speech detected. Try again.', true); return; }
+
+    transcribing = true;
+    el.mic.disabled = true;
+    setHint('Transcribing…', true, true);
+    try {
+      const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
+      const form = new FormData();
+      form.append('audio', blob, 'speech.' + ext);
+      const res = await fetch(TRANSCRIBE_URL, { method: 'POST', body: form });
+      let data = null;
+      try { data = await res.json(); } catch { /* non-JSON body */ }
+      if (!res.ok) throw new Error((data && data.error) || 'Could not transcribe the recording.');
+      const text = ((data && data.text) || '').trim();
+      if (!text) {
+        setHint('No speech detected. Try again.', true);
+      } else {
+        const base = el.input.value;
+        el.input.value = base + (base && !/\s$/.test(base) ? ' ' : '') + text;
+        autosize();
+        updateComposer();
+        el.input.focus({ preventScroll: true });
+      }
+    } catch (err) {
+      setHint(err instanceof TypeError ? 'Could not reach the server. Check your connection and try again.' : err.message, true);
+    } finally {
+      transcribing = false;
+      el.mic.disabled = false;
+    }
+  }
+
   function startVoice() {
+    if (useRecorder) { startRecording(); return; }
     if (!SpeechRecognitionCtor || listening) return;
     stopSpeaking();
     const base = el.input.value;
@@ -850,7 +959,13 @@
       };
       if (event.error !== 'aborted') {
         listening = false;
-        setHint(messages[event.error] || 'Voice input stopped unexpectedly.', true);
+        if (event.error === 'network' && canRecord) {
+          // The browser's own speech service is unreachable (some browsers ship it without a backend).
+          useRecorder = true;
+          setHint('Live speech recognition is unavailable here. Tap the microphone again to record your question instead.', true);
+        } else {
+          setHint(messages[event.error] || 'Voice input stopped unexpectedly.', true);
+        }
       }
     };
     recognition.onend = () => {
@@ -1476,8 +1591,8 @@
       sendMessage(el.input.value);
     });
 
-    if (SpeechRecognitionCtor) {
-      el.mic.addEventListener('click', () => { if (listening) stopVoice(); else startVoice(); });
+    if (SpeechRecognitionCtor || canRecord) {
+      el.mic.addEventListener('click', () => { if (listening) finishVoice(); else startVoice(); });
     } else {
       el.mic.disabled = true;
       el.mic.title = 'Voice input is not supported in this browser';

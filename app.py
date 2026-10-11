@@ -15,9 +15,12 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b").strip()
+GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 MAX_MESSAGE_CHARS = 8000
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # a couple of minutes of speech is well under this
 REQUEST_TIMEOUT = 90  # seconds
 
 SYSTEM_PROMPT = (
@@ -31,6 +34,12 @@ SYSTEM_PROMPT = (
 )
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = MAX_AUDIO_BYTES + 1024 * 1024
+
+
+@app.errorhandler(413)
+def too_large(_):
+    return jsonify({"error": "That recording is too large. Try a shorter one."}), 413
 
 
 @app.get("/")
@@ -94,6 +103,57 @@ def chat():
         return jsonify({"error": "The AI service returned an empty answer. Please try again."}), 502
 
     return jsonify({"answer": answer})
+
+
+@app.post("/api/transcribe")
+def transcribe():
+    """Speech-to-text fallback for browsers without built-in speech recognition.
+
+    Accepts multipart form data with an "audio" file and returns {"text": "..."}.
+    """
+    audio = request.files.get("audio")
+    if audio is None:
+        return jsonify({"error": "No audio was received."}), 400
+
+    data = audio.read()
+    if not data:
+        return jsonify({"error": "The recording was empty."}), 400
+    if len(data) > MAX_AUDIO_BYTES:
+        return jsonify({"error": "That recording is too large. Try a shorter one."}), 413
+    if not GROQ_API_KEY:
+        app.logger.error("GROQ_API_KEY is not set. Add it to the .env file.")
+        return jsonify({"error": "The server is not configured with an API key yet."}), 500
+
+    filename = os.path.basename(audio.filename or "speech.webm") or "speech.webm"
+    try:
+        resp = requests.post(
+            GROQ_STT_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            files={"file": (filename, data, audio.mimetype or "application/octet-stream")},
+            data={"model": GROQ_STT_MODEL, "response_format": "json", "temperature": "0"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except requests.Timeout:
+        return jsonify({"error": "Transcription took too long. Please try again."}), 504
+    except requests.RequestException:
+        app.logger.exception("Could not reach Groq for transcription")
+        return jsonify({"error": "Could not reach the transcription service. Please try again."}), 502
+
+    if resp.status_code != 200:
+        app.logger.error("Groq transcription returned %s: %s", resp.status_code, resp.text[:500])
+        if resp.status_code == 429:
+            msg = "The transcription service is busy. Please try again shortly."
+        elif resp.status_code in (401, 403):
+            msg = "The AI service rejected the API key. Check GROQ_API_KEY."
+        else:
+            msg = "Could not transcribe that recording. Please try again."
+        return jsonify({"error": msg}), 502
+
+    try:
+        text = (resp.json().get("text") or "").strip()
+    except (ValueError, AttributeError):
+        text = ""
+    return jsonify({"text": text})
 
 
 if __name__ == "__main__":
