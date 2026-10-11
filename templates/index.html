@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>StudyFlow AI</title>
+  <meta name="description" content="StudyFlow AI is an academic learning assistant for understanding concepts, learning programming, preparing for exams and asking questions by voice.">
+  <meta name="theme-color" content="#F8F8F6">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237563E8'/%3E%3Cpath d='M21.4 11c-1-1.9-2.9-2.8-5.4-2.8-3.3 0-5.2 1.4-5.2 3.6 0 2.3 2.1 3 5.2 3.7 3.1.6 5.2 1.4 5.2 3.7 0 2.2-1.9 3.6-5.2 3.6-2.7 0-4.7-1-5.7-2.8' fill='none' stroke='%23F8F8F6' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <!-- Apply the saved theme and sidebar state before first paint to avoid a flash. -->
+  <script>
+    (function () {
+      try {
+        var root = document.documentElement;
+        var theme = localStorage.getItem('studyflow-theme');
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        root.setAttribute('data-theme', theme);
+        if (localStorage.getItem('studyflow.sidebar') === 'collapsed') root.classList.add('sidebar-collapsed');
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Icon sprite: single-weight line icons, coloured only through currentColor. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24"><path d="M16.4 8.3c-.8-1.5-2.4-2.2-4.4-2.2-2.7 0-4.3 1.2-4.3 3 0 1.9 1.7 2.5 4.3 3.1 2.6.5 4.3 1.2 4.3 3.1 0 1.8-1.6 3-4.3 3-2.2 0-3.9-.8-4.7-2.3" stroke-width="2.1"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></symbol>
+      <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" stroke-width="2"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 11v5M13.5 11v5"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8 19z"/><path d="M14.5 6.5l3 3"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.2-5.1M19 5v4h-4"/></symbol>
+      <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5"/></symbol>
+      <symbol id="i-plan" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></symbol>
+    </defs>
+  </svg>
+
+  <a class="skip-link" href="#message-input">Skip to message box</a>
+
+  <div class="app" id="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar">
+      <div class="sidebar-head">
+        <a class="brand" href="/" aria-label="StudyFlow AI home">
+          <span class="brand-mark" aria-hidden="true"><svg class="i"><use href="#i-logo"/></svg></span>
+          <span class="brand-name">StudyFlow<span class="brand-ai">AI</span></span>
+        </a>
+        <button class="icon-btn only-mobile" id="sidebar-close" type="button" aria-label="Close sidebar">
+          <svg class="i" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-new" id="new-chat-btn" type="button">
+        <svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>
+        <span>New conversation</span>
+      </button>
+
+      <nav class="nav" aria-label="Main">
+        <button class="nav-item is-active" id="nav-chat" type="button" aria-current="page">
+          <svg class="i" aria-hidden="true"><use href="#i-chat"/></svg>
+          <span>Chat</span>
+        </button>
+        <button class="nav-item" id="nav-search" type="button" aria-expanded="false" aria-controls="search-wrap">
+          <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+          <span>Search conversations</span>
+        </button>
+        <button class="nav-item" id="nav-saved" type="button">
+          <svg class="i" aria-hidden="true"><use href="#i-bookmark"/></svg>
+          <span>Saved responses</span>
+          <span class="nav-count" id="saved-count" hidden></span>
+        </button>
+      </nav>
+
+      <div class="search" id="search-wrap" hidden>
+        <label class="sr-only" for="search-input">Search conversations</label>
+        <input id="search-input" type="search" placeholder="Search titles and messages" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="history" id="history" role="region" aria-label="Conversation history" tabindex="-1"></div>
+
+      <div class="sidebar-foot">
+        <button class="profile" id="profile-btn" type="button" aria-label="Edit your name">
+          <span class="avatar" id="profile-avatar" aria-hidden="true">G</span>
+          <span class="profile-text">
+            <span class="profile-name" id="profile-name">Guest</span>
+            <span class="profile-sub">Stored on this device</span>
+          </span>
+        </button>
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme">
+          <svg class="i" aria-hidden="true"><use href="#i-moon"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="scrim" id="scrim" hidden></div>
+
+    <!-- Main workspace -->
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true">
+          <svg class="i" aria-hidden="true"><use href="#i-sidebar"/></svg>
+        </button>
+        <h1 class="topbar-title" id="topbar-title">New conversation</h1>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="export-btn" type="button" aria-label="Export conversation as Markdown" title="Export as Markdown" disabled>
+            <svg class="i" aria-hidden="true"><use href="#i-download"/></svg>
+          </button>
+          <button class="icon-btn" id="delete-btn" type="button" aria-label="Delete conversation" title="Delete conversation" disabled>
+            <svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace" id="workspace">
+
+        <!-- Chat view -->
+        <section class="view" id="view-chat" aria-label="Chat">
+          <div class="scroll" id="scroll">
+            <div class="column">
+
+              <section class="welcome" id="welcome" aria-labelledby="welcome-title">
+                <p class="eyebrow" id="greeting">Welcome</p>
+                <h2 class="welcome-title" id="welcome-title">What are you studying today?</h2>
+                <p class="welcome-desc">Ask about a concept, work through code, prepare for an exam, or speak your question. Answers are structured so you can study from them.</p>
+                <ul class="prompts" id="prompts">
+                  <li>
+                    <button class="prompt" type="button" data-prompt="Explain recursion with a simple Python example and show how the call stack unwinds.">
+                      <svg class="i" aria-hidden="true"><use href="#i-bulb"/></svg>
+                      <span class="prompt-title">Understand a concept</span>
+                      <span class="prompt-text">Explain recursion with a Python example</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="prompt" type="button" data-prompt="Write a Python function that checks whether a string is a palindrome, then explain it line by line.">
+                      <svg class="i" aria-hidden="true"><use href="#i-code"/></svg>
+                      <span class="prompt-title">Learn programming</span>
+                      <span class="prompt-text">Palindrome checker, explained line by line</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="prompt" type="button" data-prompt="Create a one-week revision plan for a data structures exam, with daily topics and practice tasks.">
+                      <svg class="i" aria-hidden="true"><use href="#i-plan"/></svg>
+                      <span class="prompt-title">Prepare for an exam</span>
+                      <span class="prompt-text">One-week data structures revision plan</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="prompt" type="button" data-prompt="Compare TCP and UDP in a table, then explain when to use each one.">
+                      <svg class="i" aria-hidden="true"><use href="#i-table"/></svg>
+                      <span class="prompt-title">Compare topics</span>
+                      <span class="prompt-text">TCP versus UDP in a table</span>
+                    </button>
+                  </li>
+                </ul>
+              </section>
+
+              <div class="thread" id="thread" role="log" aria-label="Conversation" aria-live="off"></div>
+            </div>
+          </div>
+
+          <div class="composer-wrap">
+            <form class="composer" id="composer" autocomplete="off">
+              <label class="sr-only" for="message-input">Message StudyFlow AI</label>
+              <textarea id="message-input" rows="1" maxlength="8000" enterkeyhint="send" spellcheck="true"
+                placeholder="Ask a question or paste a problem"></textarea>
+              <div class="composer-bar">
+                <span class="composer-hint" id="composer-hint">Enter to send · Shift+Enter for a new line</span>
+                <div class="composer-actions">
+                  <button class="icon-btn" id="mic-btn" type="button" aria-pressed="false" aria-label="Start voice input" title="Start voice input">
+                    <svg class="i" aria-hidden="true"><use href="#i-mic"/></svg>
+                  </button>
+                  <button class="send-btn" id="send-btn" type="submit" aria-label="Send message" title="Send message" disabled>
+                    <svg class="i" aria-hidden="true"><use href="#i-send"/></svg>
+                  </button>
+                </div>
+              </div>
+            </form>
+            <p class="disclaimer">StudyFlow AI can make mistakes. Check important facts against your course material.</p>
+          </div>
+        </section>
+
+        <!-- Saved responses view -->
+        <section class="view" id="view-saved" aria-label="Saved responses" hidden>
+          <div class="scroll">
+            <div class="column">
+              <header class="page-head">
+                <h2>Saved responses</h2>
+                <p>Answers you have bookmarked. They are stored in this browser only.</p>
+              </header>
+              <div class="saved-list" id="saved-list"></div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Shared dialog for rename, delete and profile -->
+  <dialog class="dialog" id="dialog" aria-labelledby="dialog-title">
+    <form id="dialog-form" method="dialog">
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-text" hidden></p>
+      <label class="field" id="dialog-field" hidden>
+        <span class="field-label" id="dialog-label"></span>
+        <input id="dialog-input" type="text" maxlength="60" autocomplete="off">
+      </label>
+      <div class="dialog-actions">
+        <button class="btn" id="dialog-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="dialog-ok" type="submit" value="ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
+
+  <noscript><p class="noscript">StudyFlow AI needs JavaScript to run.</p></noscript>
+  <script src="/static/script.js" defer></script>
+</body>
+</html>
